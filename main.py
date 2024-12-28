@@ -5,64 +5,78 @@ from crewai import Crew, Process
 from dotenv import load_dotenv
 from knowledge import ContentCreationKnowledge
 from langchain_openai import ChatOpenAI
-from openai import OpenAI
 from tasks import ContentCreationTasks
 
-# Load environment variables
 load_dotenv()
-print(f"Loaded API Key: {os.getenv('OPENAI_API_KEY')}")
-OpenAIGPT4 = ChatOpenAI(model="chatgpt-4o-latest", api_key=os.getenv("OPENAI_API_KEY"))
-print("All environment variables:")
-for key, value in os.environ.items():
-    if "OPENAI" in key:
-        print(f"{key}: {value}")
+
+OpenAIGPT4 = ChatOpenAI(
+    model=os.getenv("OPENAI_MODEL_NAME"), api_key=os.getenv("OPENAI_API_KEY")
+)
 
 
 def run_content_creation_crew(topic):
-    # Get content creation guidelines
+    # Initialize components
     knowledge = ContentCreationKnowledge()
-    # Initialize agents and tasks
     agents = ContentCreationAgents()
     tasks = ContentCreationTasks()
 
-    # Initialize agents
-    marketing_director = agents.marketing_director_agent()
+    # Create agents
+    marketing_director = agents.marketing_director_agent(topic)
     photography_director = agents.photography_director_agent()
-    sora_advisor = agents.sora_advisor_agent()
+    photo_asset_manager = agents.photo_asset_agent()
+    narrator = agents.narrator_agent()
     music_expert = agents.music_expert_agent()
-    session_manager = agents.session_manager_agent()
+    metadata_specialist = agents.metadata_agent()
 
-    # Initialize tasks
-    content_generation = tasks.content_generation_task(marketing_director, topic)
-
-    # Form the crew
+    # Form the crew with sequential task execution
     crew = Crew(
         agents=[
             marketing_director,
             photography_director,
-            sora_advisor,
+            photo_asset_manager,
+            narrator,
             music_expert,
-            session_manager,
+            metadata_specialist,
         ],
-        tasks=[content_generation],
-        process=Process.hierarchical,
+        tasks=[
+            tasks.marketing_analysis_task(marketing_director, topic),
+            tasks.visual_description_task(photography_director),
+            tasks.photo_reference_task(photo_asset_manager),
+            tasks.narration_task(narrator),
+            tasks.music_task(music_expert),
+            tasks.metadata_task(metadata_specialist),
+        ],
+        process=Process.sequential,
         knowledge_sources=[
             knowledge.get_content_guidelines(),
             knowledge.get_output_template(),
-            knowledge.get_example_output(),
         ],
-        manager_llm=OpenAIGPT4,
-        manager_agent=session_manager,
         verbose=True,
     )
 
-    # Kick off the crew's work
-    results = crew.kickoff()
-    return results
+    # Execute the workflow
+    crew.kickoff()
+
+    # Fetch outputs from all agents
+    final_output = {
+        "Visual Plan": crew.get_task_output(
+            tasks.visual_description_task(photography_director)
+        ),
+        "Image Prompts": crew.get_task_output(
+            tasks.photo_reference_task(photo_asset_manager)
+        ),
+        "Narration Script": crew.get_task_output(tasks.narration_task(narrator)),
+        "Music Prompt": crew.get_task_output(tasks.music_task(music_expert)),
+        "Metadata": crew.get_task_output(tasks.metadata_task(metadata_specialist)),
+    }
+
+    return final_output
 
 
 if __name__ == "__main__":
-    topic = "A super engaging video on how to let people go even if you still love them"
-    results = run_content_creation_crew(topic)
-    print("Content Creation Results:")
-    print(results)
+    topic = input("Provide the initial content topic: ")
+    final_result = run_content_creation_crew(topic)
+
+    print("\nFinal Outputs:")
+    for section, output in final_result.items():
+        print(f"{section}:\n{output}\n")

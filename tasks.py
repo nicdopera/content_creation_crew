@@ -2,42 +2,87 @@ from crewai import Task
 
 
 class ContentCreationTasks:
-    def content_generation_task(self, agent, topic):
+    def marketing_analysis_task(self, agent, topic):
         return Task(
-            description=f"Create a 30-second short movie script and metadata for the following topic: {topic}",
+            description=f"""Improve the idea:{topic}. Make it more engaging, audience-focused, and optimized for maximum watch time and viewer retention.""",
             agent=agent,
-            expected_output="""A complete content creation package including:
-                ##CONTENT BRIEF
-                A brief description of the content theme and objective.
+            input=topic,
+            expected_output="""
+            MARKETING OUTPUT
+            [one-sentence viral content description]
+            """,
+        )
 
-                ##FORMAT
-                The shot composition scheme (e.g., 3 x 10-second shots)
+    def visual_description_task(self, agent):
+        return Task(
+            description="""Describe the video structure for a 30-second duration, consisting of 5 or 10-second clips. Specify each clip's purpose, style, and transitions.""",
+            agent=agent,
+            input=lambda: agent.previous_output(),
+            expected_output="""
+            VISUAL PLAN
+            - Clip Descriptions:
+              Clip 1: [description]
+              Clip 2: [description]
+              ...
+            - Total Duration: 30 seconds
+            """,
+        )
 
-                ##SHOTS
-                Detailed descriptions of each shot with timestamps and captions.
-                Each shot must follow the standardized format:
-                - 5-second shots: Maximum 2 captions (0s, 5s)
-                - 10-second shots: Maximum 3 captions (0s, 5s, 10s)
+    def photo_reference_task(self, agent):
+        return Task(
+            description="""Generate specific image prompts for each clip based on the visual descriptions. Ensure these prompts align with Runway's capabilities.""",
+            agent=agent,
+            input=lambda: agent.previous_output(),
+            expected_output="""
+            IMAGE PROMPTS
+            - Clip 1 Prompt: [detailed image prompt]
+            - Clip 2 Prompt: [detailed image prompt]
+            ...
+            """,
+        )
 
-                ##NARRATOR SCRIPT
-                Time-stamped dialog matching the visual storyboard.
+    def narration_task(self, agent):
+        return Task(
+            description="""Write a narration script that complements the visual structure while adhering to the 30-second duration limit.""",
+            agent=agent,
+            input=lambda: agent.previous_output(),
+            expected_output="""
+            NARRATION SCRIPT
+            - Full Script: [narration text synchronized with clips]
+            """,
+        )
 
-                ##MUSIC PROMPT
-                Detailed music generation prompt including:
-                - Style/Genre
-                - Tempo/BPM
-                - Mood/Emotion
-                - Key musical elements
+    def music_task(self, agent):
+        return Task(
+            description="""Generate a brief music prompt that matches the mood and pace of the video.""",
+            agent=agent,
+            input=lambda: agent.previous_output(),
+            expected_output="""
+            MUSIC PROMPT
+            - Style: [music style]
+            - Mood: [music mood]
+            """,
+        )
 
-                ##PUBLISHING METADATA
-                ###TikTok Version
-                - Title (max 100 characters)
-                - Description (max 500 characters)
-                - Tags (8-12 relevant hashtags)
-
-                ###YouTube Version
-                - Title
-                - Description
-                - Tags
+    def metadata_task(self, agent):
+        return Task(
+            description="""Create optimized metadata, including titles, descriptions, and tags for YouTube and Instagram.""",
+            agent=agent,
+            input=lambda: {
+                "marketing": agent.previous_output(step=-5),
+                "visual": agent.previous_output(step=-4),
+                "narration": agent.previous_output(step=-2),
+                "music": agent.previous_output(step=-1),
+            },
+            expected_output="""
+            METADATA
+            - YouTube:
+              Title: [title]
+              Description: [description]
+              Tags: [tags]
+            - Instagram:
+              Title: [title]
+              Description: [description]
+              Hashtags: [hashtags]
             """,
         )
